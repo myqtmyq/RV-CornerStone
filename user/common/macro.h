@@ -74,4 +74,11 @@
  */
 #define RAMP(start, stop, progress) ((WANG(progress, 0, 1)) * ((stop) - (start)) + (start))
 
+/**
+ * @brief get relative system time
+ */
+#define getSysTimeNs() (1e9 * ulHighFrequencyTimerTicks / 25000.0f) 
+#define getSysTimeUs() (1e6 * ulHighFrequencyTimerTicks / 25000.0f)
+#define getSysTimeMs() (1e3 * ulHighFrequencyTimerTicks / 25000.0f)
+#define getSysTimeS()  (1.0f * ulHighFrequencyTimerTicks / 25000.0f)
 #endif

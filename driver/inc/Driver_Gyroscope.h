@@ -18,8 +18,10 @@
 #include "BMI088driver.h"
 #include "ist8310driver.h"
 #endif
+#include "orientation_ekf.h"
+#include "gyro_bias_estimator.h"
 
-#define PI 3.1415926f
+#define PI 3.141592653589793f
 
 typedef struct {
     volatile int16_t ax; // m/s^2 [-8g,+8g] -> [-32768,32768] ideal:0
@@ -50,8 +52,15 @@ typedef struct {
     float pitch;
     float roll;
     float yawoffset;
+    float modification;
     int   startupCounter;
+    float yawSpeed;
+    float pitchSpeed;
+    float rollSpeed;
 } GyroscopeData_Type;
+
+
+
 
 /**
  * @brief 陀螺仪初始化
@@ -79,5 +88,12 @@ float Gyroscope_Get_Filter_Diff(void);
  * @brief 设置静态误差
  */
 void Gyroscope_Set_Bias(ImuData_Type *ImuData, int16_t gx_bias, int16_t gy_bias, int16_t gz_bias);
+/**
+ * @brief 坐标系转换
+ * 
+ */
+void Gyroscope_axis_trans( float ImuData_temp[][3]);
+
+void Gyroscope_Calculate_angleSpeed(GyroscopeData_Type *gd, float yaw, float pitch, float roll);
 
 #endif

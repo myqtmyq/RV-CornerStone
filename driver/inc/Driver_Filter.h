@@ -22,9 +22,11 @@ typedef struct {
     float   offset;
     float   result;
     int32_t count; // 计数器
+    uint32_t lastTick;
+    uint32_t tick;
 
-    // 限幅滤波阈值
-    float thresholdLB;
+    // 零漂补偿
+    float driftConfficient;
 
     // 采样
     float average; // 移动平均值

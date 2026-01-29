@@ -114,6 +114,8 @@ void BSP_DBUS_Init(uint8_t *remoteBuffer);
 void BSP_IMU_Init(void);
 void BSP_Laser_Init(void);
 void BSP_User_Power_Init(void);
+void BSP_IWDG_Init(void);
+void BSP_IWDG_Feed(void);
 
 // 按键
 void    BSP_Button_Init(void);

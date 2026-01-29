@@ -37,6 +37,7 @@ typedef struct {
 } GraphicData_Type;
 
 typedef struct {
+    int32_t debug0;
     int32_t debug1;
     int32_t debug2;
     int32_t debug3;
@@ -44,8 +45,20 @@ typedef struct {
     int32_t debug5;
     int32_t debug6;
     int32_t debug7;
-    int32_t debug8;
 } DebugData_Type;
+
+typedef struct 
+{
+    float debug0;
+    float debug1;
+    float debug2;
+    float debug3;
+    float debug4;
+    float debug5;
+    float debug6;
+    uint32_t vofaTail;
+}VofaData_type;
+
 
 /**********************************************************************
  *                              协议列表
@@ -353,6 +366,10 @@ typedef union {
     struct {
         DebugData_Type debugData;
     };
+    struct 
+    {
+        VofaData_type vofaData;
+    };
     struct {
         uint8_t data[32];
     };
@@ -444,6 +461,23 @@ typedef union {
     };
 } board_interactive_data_t;
 
+typedef union 
+{
+    struct 
+    {
+        int16_t basePower;
+        int16_t sate;
+        int16_t maxDischargePower;
+        int16_t energyPercentage;
+    };
+
+    struct 
+    {
+        uint8_t data[8];
+    };
+}superCapBoard_t;
+
+
 /**********************************************************************
  *                              协议信息
  **********************************************************************/
@@ -455,7 +489,7 @@ typedef union {
             {0XF100, 8, 0}, {0XF101, 21, 0}, {0XF102, 36, 0}, {0XF103, 81, 0}, {0XF110, 51, 0}, {0XF104, 111, 0}, {0X1024, 32, 0}, {0X6666, 24, 0},            \
             {0X0120, 0, 1}, {0X0401, 9, 1}, {0X0402, 12, 1}, {0X0403, 12, 0}, {0X0404, 18, 0}, {0XF301, 22, 1}, {0X0501, 16, 1}, {                             \
             0X0502, 16, 1                                                                                                                                      \
-        }                                                                                                                                                      \
+        }, {0x500, 8, 1}                                                                                                                                                   \
     }
 
 /**********************************************************************
@@ -498,9 +532,10 @@ typedef union {
         robot_interactive_data_t       robotCommunication;          // 0XF301 学生机器人间通信
         board_interactive_data_t       boardAlpha;                  // 0X0501 主控板间通信
         board_interactive_data_t       boardBeta;                   // 0X0502 主控板间通信
+        superCapBoard_t                superCapBoard                // 0x0500 超级电容
     };
     struct {
-        uint8_t data[618];
+        uint8_t data[610];
     };
 } ProtocolData_Type;
 

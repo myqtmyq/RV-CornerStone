@@ -58,7 +58,7 @@ void Motor_Init(Motor_Type *motor, float reductionRate, int8_t angleEnabled, int
  * @param position 转子位置
  * @param speed 转子转速
  */
-void Motor_Update(Motor_Type *motor, uint8_t data[8]);
+void Motor_Update(Motor_Type *motor, uint8_t data[8], uint8_t type);
 
 /**
  * @brief 设置连续角度偏移量

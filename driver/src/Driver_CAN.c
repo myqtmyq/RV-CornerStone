@@ -42,7 +42,7 @@ void Can_Send_Msg(CAN_TypeDef *CANx, int16_t id, uint8_t *sendBuf, uint16_t leng
     int data[4];
     int i;
 
-    for (i = 0; i < length / 8 + 1; i++) {
+    for (i = 0; i < length / 8 + (length % 8 ? 1 : 0); i++) {
         data[0] = *(sendBuf + 8 * i) << 8 | *(sendBuf + 8 * i + 1);
         data[1] = *(sendBuf + 8 * i + 2) << 8 | *(sendBuf + 8 * i + 3);
         data[2] = *(sendBuf + 8 * i + 4) << 8 | *(sendBuf + 8 * i + 5);

@@ -27,7 +27,7 @@ int MPU6500_Init(void) {
     {
         return 0xff;
     }
-    if (IIC_WriteData(MPU_IIC_ADDR, MPU6500_CONFIG, 0x01) == 0xff) // Digital Low-Pass Filter:DLPF_CFG is 3, Fs is 1khz
+    if (IIC_WriteData(MPU_IIC_ADDR, MPU6500_CONFIG, 0x03) == 0xff) // Digital Low-Pass Filter:DLPF_CFG is 3, Fs is 1khz
     {                                                              // acc bandwidth 44Hz,gyro 42Hz
         return 0xff;
     }
@@ -39,7 +39,7 @@ int MPU6500_Init(void) {
     {
         return 0xff;
     }
-    if (IIC_WriteData(MPU_IIC_ADDR, MPU6500_ACCEL_CONFIG_2, 0x01) == 0xff) //
+    if (IIC_WriteData(MPU_IIC_ADDR, MPU6500_ACCEL_CONFIG_2, 0x03) == 0xff) //
     {
         return 0xff;
     }

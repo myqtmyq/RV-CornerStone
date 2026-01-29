@@ -1,10 +1,15 @@
 #include "Driver_Bridge.h"
+#include "handle.h"
 #pragma pack(8)
 
 void Bridge_Bind(Bridge_Type *bridge, uint8_t type, uint32_t deviceID, void *handle) {
     if (IS_MOTOR) {
         MOTOR = handle;
-    } else {
+    }else if(deviceID <= 0x188 && deviceID >= 0x181){
+        deviceID = deviceID - 0x180 + 0x200 + 12;
+        MOTOR = handle;
+    } 
+    else {
         Node_Type *node = handle;
         if (IS_CAN) {
             CAN_NODE = node;
@@ -53,12 +58,17 @@ void Bridge_Receive_CAN(Bridge_Type *bridge, uint8_t type) {
     // 安排数据
     if (IS_MOTOR) {
         Motor_Type *motor = MOTOR;
-        Motor_Update(motor, CanRxData.Data);
-    } else {
+        Motor_Update(motor, CanRxData.Data, 1);
+    }else if(deviceID <= 0x188 && deviceID >= 0x181){
+        deviceID = deviceID - 0x180 + 0x200 + 12;
+        Motor_Type *motor = MOTOR;
+        Motor_Update(motor, CanRxData.Data, 2);
+    }
+     else {
         for (i = 0; i < CanRxData.DLC; i++) {
             node              = CAN_NODE;
             node->isFirstByte = i == 0 ? 1 : 0;
-            Protocol_Unpack(node, CanRxData.Data[i]);
+            Protocol_Unpack(node, CanRxData.Data[i]);;
         }
     }
 }
@@ -74,11 +84,14 @@ void Bridge_Send_Motor(Bridge_Type *bridge, uint8_t safetyMode) {
     int                 motorEnabled;
     uint32_t            deviceID;
     uint8_t             type;
+    static int16_t      Current_LK;             // LK电机速度控制
+    static uint16_t     Can_Send_Id_LK  = 0x141;
 
     Bridge_Check_Motor_Watchdog(bridge); // 检查电机是否在线
 
     for (i = 0; i < 2; i++) {
         type = i == 0 ? CAN1_BRIDGE : CAN2_BRIDGE;
+        //DJI
         for (j = 0; j < 3; j++) {
             isNotEmpty = 0;
             for (k = 0; k < 4; k++) {
@@ -94,6 +107,17 @@ void Bridge_Send_Motor(Bridge_Type *bridge, uint8_t safetyMode) {
                 Can_Send(Canx[i], Can_Send_Id[j], 0, 0, 0, 0);
             }
         }
+        //LK
+        deviceID = Can_Send_Id_LK - 0x140 + 0x200 + 12;
+        motor = MOTOR;
+        motorEnabled = motor && motor->inputEnabled && motor->online;
+        Current_LK = motorEnabled ? motor->input : 0;
+        isNotEmpty = isNotEmpty || motorEnabled;
+        if (isNotEmpty && !safetyMode) {
+            Can_Send(Canx[i], Can_Send_Id_LK, 0xA100, 0, (Current_LK&0xff << 8) | (Current_LK >> 8), 0);
+        } else if (isNotEmpty && safetyMode) {
+            Can_Send(Canx[i], Can_Send_Id_LK, 0xA100, 0, 0, 0);
+        }
     }
 }
 
@@ -101,7 +125,7 @@ void Bridge_Check_Motor_Watchdog(Bridge_Type *bridge) {
     int         i;
     Motor_Type *motor;
     int8_t      vegtableMotorId = -1;
-    for (i = 0; i < 24; i++) {
+    for (i = 0; i < 26; i++) {
         motor = bridge->motors[i];
         if (motor != 0 && xTaskGetTickCount() - motor->updatedAt > CAN_TIMEOUT) {
             vegtableMotorId = i;

@@ -25,6 +25,12 @@ void Chassis_Update(ChassisData_Type *cd, float vx, float vy, float vw) {
     cd->vw = vw;
 }
 
+void Chassis_Updata_FT(ChassisData_Type * cd, float Fx, float Fy, float T){
+    cd->Fx = Fx;
+    cd->Fy = Fy;
+    cd->T  = T;
+}
+
 void Chassis_Fix(ChassisData_Type *cd, float angle) {
     float sinYaw = vegsin(angle); // 1
     float cosYaw = vegcos(angle); // 0
@@ -33,13 +39,27 @@ void Chassis_Fix(ChassisData_Type *cd, float angle) {
     cd->vy       = vy * cosYaw - vx * sinYaw;
     cd->vx       = vy * sinYaw + vx * cosYaw;
 }
-
+//此处运动学逆解已修改为全向轮地盘
 void Chassis_Calculate_Rotor_Speed(ChassisData_Type *cd) {
-    float coefficient = CHASSIS_INVERSE_WHEEL_RADIUS * CHASSIS_MOTOR_REDUCTION_RATE;
-    cd->rotorSpeed[0] = coefficient * (cd->vy - cd->vx - cd->vw * CHASSIS_SIZE_K);
-    cd->rotorSpeed[1] = coefficient * (cd->vy + cd->vx - cd->vw * CHASSIS_SIZE_K);
-    cd->rotorSpeed[2] = -coefficient * (cd->vy - cd->vx + cd->vw * CHASSIS_SIZE_K);
-    cd->rotorSpeed[3] = -coefficient * (cd->vy + cd->vx + cd->vw * CHASSIS_SIZE_K);
+    float coefficient = (CHASSIS_INVERSE_WHEEL_RADIUS * CHASSIS_MOTOR_REDUCTION_RATE);
+    cd->rotorSpeed[0] = coefficient * ((cd->vy - cd->vx)*0.707f + cd->vw * CHASSIS_RADIUS);
+    cd->rotorSpeed[1] = -coefficient * ((cd->vy + cd->vx)*0.707f + cd->vw * CHASSIS_RADIUS);
+    cd->rotorSpeed[2] = -coefficient * ((cd->vy - cd->vx)*0.707f + cd->vw * CHASSIS_RADIUS);
+    cd->rotorSpeed[3] = coefficient * ((cd->vy + cd->vx)*0.707f + cd->vw * CHASSIS_RADIUS);
+}
+//此处为运动学正结算
+void Chassis_Calculate_Real_Speed(ChassisData_Type *cd, float * motor_Speed) {
+    float coefficient = (CHASSIS_INVERSE_WHEEL_RADIUS * CHASSIS_MOTOR_REDUCTION_RATE);
+    cd->realvx = (-motor_Speed[0]-motor_Speed[1]+motor_Speed[2]+motor_Speed[3])*0.354f/coefficient;
+    cd->realvy = (motor_Speed[0]-motor_Speed[1]-motor_Speed[2]+motor_Speed[3])*0.354f/coefficient;
+    cd->realvw = (motor_Speed[0]+motor_Speed[1]+motor_Speed[2]+motor_Speed[3])*0.25f/coefficient/CHASSIS_RADIUS;
+}
+//此处为动力学逆解算
+void Chassis_Calculate_Rotor_Torgue(ChassisData_Type *cd){
+    cd->rotorTorgue[0] = ((-cd->Fx + cd->Fy)*0.354f + cd->T * 0.25f / CHASSIS_RADIUS) / CHASSIS_INVERSE_WHEEL_RADIUS;
+    cd->rotorTorgue[1] = ((-cd->Fx - cd->Fy)*0.354f + cd->T * 0.25f / CHASSIS_RADIUS) / CHASSIS_INVERSE_WHEEL_RADIUS;
+    cd->rotorTorgue[2] = ((cd->Fx - cd->Fy)*0.354f + cd->T * 0.25f / CHASSIS_RADIUS) / CHASSIS_INVERSE_WHEEL_RADIUS;
+    cd->rotorTorgue[3] = ((cd->Fx + cd->Fy)*0.354f + cd->T * 0.25f / CHASSIS_RADIUS) / CHASSIS_INVERSE_WHEEL_RADIUS;
 }
 
 void Chassis_Limit_Rotor_Speed(ChassisData_Type *cd, float maxRotorSpeed) {
@@ -109,4 +129,96 @@ void Chassis_Limit_Power(ChassisData_Type *cd, float targetPower, float referenc
     cd->powerScale = (cd->power + PID_Power->output) / cd->power;
     MIAO(cd->powerScale, 0, 1);
     // Chassis_Scale_Rotor_Speed(cd, cd->powerScale);
+}
+
+void Chassis_Current_Output_Integrate(float *motorCurrentOutput, ChassisData_Type* cd){
+    for(int i =0; i<4; i++){
+        motorCurrentOutput[i] += (cd->rotorTorgue[i]*3.333f) ;
+    }
+}
+
+float Chassis_Calculate_Power_Limit(float* motorCurrentOutput, int16_t* MCO_With_PowerLimit, float *realMotorSpeed, float targetPower){
+    double coefficient[6] = SECOND_MACLAURIN_COEFFICIENT;
+    float totalPower = 0, ETA = 0, scale = 1,DELTA = 0 , DELTA_SQRT = 0;
+
+    
+    for (int i = 0; i < 4; i++)
+    {   
+        float current = motorCurrentOutput[i] >= 0 ? motorCurrentOutput[i] : -motorCurrentOutput[i];
+        if(current > 19.9f){
+            if ((19.9f / current) < scale)
+            {
+                scale = 19.9f / current;
+            }
+        }
+    }
+    float aveSpeed = 0;
+    for(int i = 0; i < 4; i++) {
+        aveSpeed += ABS(realMotorSpeed[i]);
+    }
+    aveSpeed = aveSpeed / 4.0f;
+    // if(aveSpeed < 4*PI) {
+    //     for(int i =0; i < 4; i++) {
+    //         motorCurrentOutput[i] = motorCurrentOutput[i] * (1 - pow(2.718, (-aveSpeed / (4 * PI) - 0.105))) * 4;
+    //     }
+    // }
+    for (int i = 0; i < 4; i++)
+    {
+        motorCurrentOutput[i] = scale * motorCurrentOutput[i];
+    }
+    
+    for(int i =0; i < 4; i++) {
+        totalPower += (coefficient[0] \
+                       + coefficient[1]*motorCurrentOutput[i] \
+                       + coefficient[2]*realMotorSpeed[i] \
+                       + coefficient[3]*motorCurrentOutput[i]*realMotorSpeed[i] \
+                       + coefficient[4]*motorCurrentOutput[i]*motorCurrentOutput[i] \
+                       + coefficient[5]*realMotorSpeed[i]*realMotorSpeed[i] \
+                    );
+    }
+    if(totalPower <= targetPower) {
+        for(int i=0; i<4; i++){
+            MCO_With_PowerLimit[i] = motorCurrentOutput[i] * CurrentMap_C620_Inverse;
+        }
+        ETA = 1;
+    }
+    else{
+        float a =0, b =0, c =0;
+        for(int i =0; i < 4; i++){
+            a += (coefficient[4]*motorCurrentOutput[i]*motorCurrentOutput[i]);
+        }
+        for(int i =0; i <4; i++){
+            b += (coefficient[3]*motorCurrentOutput[i]*realMotorSpeed[i] + coefficient[1]*motorCurrentOutput[i]);
+        }
+        for(int i=0; i< 4; i++){
+            c += (coefficient[0] + coefficient[5]*realMotorSpeed[i]*realMotorSpeed[i] + coefficient[2] * realMotorSpeed[i]);
+        }
+        c -= totalPower;
+
+        if(!a == 0){
+            DELTA = b*b - 4*a*c;
+            // VofaData->debug4 = DELTA;
+            if(DELTA >= 0){
+                DELTA_SQRT = sqrt(DELTA);
+                float root1 = (-b + DELTA_SQRT)/(2*a);
+                float root2 = (-b - DELTA_SQRT)/(2*a);
+                // VofaData->debug1 = root1;
+                // VofaData->debug2 = root2;
+                if(root1 >0 && root1 <1 && root2 >0 && root2 <1){
+                    ETA = root1 > root2? root1 : root2;
+                }else if (root1 >0 && root1 <1)
+                {
+                    ETA = root1;
+                }else if (root2 >0 && root2 <1)
+                {
+                    ETA = root2;
+                }
+            }
+        }
+        for(int i=0; i<4; i++){
+            MCO_With_PowerLimit[i] = motorCurrentOutput[i] * ETA * CurrentMap_C620_Inverse;
+        }
+    }
+
+    return ETA;
 }

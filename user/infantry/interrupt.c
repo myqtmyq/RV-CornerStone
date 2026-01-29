@@ -6,10 +6,12 @@
 // EXTI9_5 陀螺仪中断
 void EXTI9_5_IRQHandler(void) {
     uint8_t suc;
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     if (EXTI_GetITStatus(EXTI_Line8) != RESET) {
         EXTI_ClearFlag(EXTI_Line8);
         EXTI_ClearITPendingBit(EXTI_Line8);
-        Gyroscope_Update(&Gyroscope_EulerData);
+        xSemaphoreGiveFromISR(ImuDataReady, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
 }
 
@@ -101,9 +103,30 @@ void NMI_Handler(void) {
  * @param  None
  * @return None
  */
-void HardFault_Handler(void) {
-   while (1) {
-    }
+void hardfault_c(uint32_t *sp);
+	
+__ASM void HardFault_Handler(void)
+{
+		IMPORT hardfault_c;
+	
+    TST     LR, #4
+    ITE     EQ
+    MRSEQ   R0, MSP
+    MRSNE   R0, PSP
+    B       hardfault_c
+}
+
+void hardfault_c(uint32_t *sp)
+{
+    volatile uint32_t pc  = sp[6];
+    volatile uint32_t lr  = sp[5];
+    volatile uint32_t cfsr  = SCB->CFSR;
+    volatile uint32_t hfsr  = SCB->HFSR;
+    volatile uint32_t mmfar = SCB->MMFAR;
+    volatile uint32_t bfar  = SCB->BFAR;
+
+    __BKPT(0);
+    while (1) {}
 }
 
 /**

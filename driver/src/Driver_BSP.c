@@ -705,8 +705,8 @@ void BSP_TIM2_Init(void) {
     // TIM
     TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStructure; // TIM 频率
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
-    TIM_TimeBaseInitStructure.TIM_Period        = 2 - 1;
-    TIM_TimeBaseInitStructure.TIM_Prescaler     = 9000 - 1;
+    TIM_TimeBaseInitStructure.TIM_Period        = 20 - 1;
+    TIM_TimeBaseInitStructure.TIM_Prescaler     = 180 - 1;
     TIM_TimeBaseInitStructure.TIM_CounterMode   = TIM_CounterMode_Up;
     TIM_TimeBaseInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
     TIM_TimeBaseInit(TIM2, &TIM_TimeBaseInitStructure);
@@ -845,9 +845,9 @@ void DMA_Disable(dma_table_index_e tableIndex) {
 void DMA_Enable(dma_table_index_e tableIndex, uint16_t length) {
     DMA_Type dma;
     dma = DMA_Table[tableIndex];
-    DMA_ClearFlag(dma.DMAx_Streamy, dma.DMA_FLAG_TCIFx | dma.DMA_FLAG_HTIFx);
-    while (DMA_GetCmdStatus(dma.DMAx_Streamy) != DISABLE) {
+        while (DMA_GetCmdStatus(dma.DMAx_Streamy) != DISABLE) {
     }
+    DMA_ClearFlag(dma.DMAx_Streamy, dma.DMA_FLAG_TCIFx | dma.DMA_FLAG_HTIFx);
     DMA_SetCurrDataCounter(dma.DMAx_Streamy, length);
     DMA_Cmd(dma.DMAx_Streamy, ENABLE);
 }
@@ -1397,4 +1397,18 @@ uint8_t Is_Button_Pressed(void) {
 #ifdef STM32F407xx
     return !GPIO_ReadInputDataBit(GPIOA, GPIO_Pin_0);
 #endif
+}
+
+void BSP_IWDG_Init(){
+#ifdef STM32F427_437xx
+    IWDG_WriteAccessCmd(IWDG_WriteAccess_Enable);
+    IWDG_SetPrescaler(IWDG_Prescaler_32);
+    IWDG_SetReload(3999);
+    IWDG_ReloadCounter();
+    IWDG_Enable();
+#endif 
+}
+
+void BSP_IWDG_Feed(){
+    IWDG_ReloadCounter();
 }
